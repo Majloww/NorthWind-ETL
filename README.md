@@ -1,17 +1,19 @@
 # **ETL proces datasetu NorthWind**
 
-Tento repozitár obsahuje implementáciu ETL procesu v Snowflake pre analýzu dát z **NorthWind** datasetu. Projekt sa zameriava na preskúmanie správania používateľov a ich čitateľských preferencií na základe hodnotení kníh a demografických údajov používateľov. Výsledný dátový model umožňuje multidimenzionálnu analýzu a vizualizáciu kľúčových metrik.
+Tento projekt predstavuje implementáciu ETL procesu v Snowflake na analýzu dát z Northwind databázy. Cieľom je preskúmať obchodné aktivity spoločnosti prostredníctvom údajov o predajoch, zákazníkoch, produktoch a zamestnancoch. Výsledný dátový model umožňuje podrobnejšiu analýzu dát a poskytuje možnosť vizualizovať rôzne aspekty ako sú predajné trendy, výkonnosť zamestnancov a nákupné preferencie zákazníkov.
 
 ---
 ## **1. Úvod a popis zdrojových dát**
-Cieľom semestrálneho projektu je analyzovať dáta týkajúce sa kníh, používateľov a ich hodnotení. Táto analýza umožňuje identifikovať trendy v čitateľských preferenciách, najpopulárnejšie knihy a správanie používateľov.
+Cieľom semestrálneho projektu je analyzovať dáta týkajúce sa produktov, zákazníkov a objednávok. Táto analýza umožňuje identifikovať trendy v predajoch, výkonnosť zamestnancov a preferencie zákazníkov.
 
-Zdrojové dáta pochádzajú z Kaggle datasetu dostupného [tu](https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs). Dataset obsahuje päť hlavných tabuliek:
-- `books`
-- `ratings`
-- `users`
-- `occupations`
-- `education_levels`
+Zdrojové dáta pochádzajú z Northwind databázy dostupnej [tu](https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs). Dataset obsahuje sedem hlavných tabuliek:
+- `categories`
+- `products`
+- `suppliers`
+- `customers`
+- `employees`
+- `orders`
+- `shippers`
 
 Účelom ETL procesu bolo tieto dáta pripraviť, transformovať a sprístupniť pre viacdimenzionálnu analýzu.
 
@@ -30,44 +32,47 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na **e
 ---
 ## **2 Dimenzionálny model**
 
-Navrhnutý bol **hviezdicový model (star schema)**, pre efektívnu analýzu kde centrálny bod predstavuje faktová tabuľka **`fact_ratings`**, ktorá je prepojená s nasledujúcimi dimenziami:
-- **`dim_books`**: Obsahuje podrobné informácie o knihách (názov, autor, rok vydania, vydavateľ).
-- **`dim_users`**: Obsahuje demografické údaje o používateľoch, ako sú vekové kategórie, pohlavie, povolanie a vzdelanie.
-- **`dim_date`**: Zahrňuje informácie o dátumoch hodnotení (deň, mesiac, rok, štvrťrok).
-- **`dim_time`**: Obsahuje podrobné časové údaje (hodina, AM/PM).
+Navrhnutý bol **hviezdicový model (star schema)**, ktorý umožňuje efektívnu analýzu. Centrálny bod tohto modelu tvorí faktová tabuľka **`orders_facts`**, ktorá je prepojená s nasledujúcimi dimenziami:
+
+- **`customers_dim`**: Obsahuje informácie o zákazníkoch (ID zákazníka, meno, kontaktné údaje, mesto, krajina).
+- **`employees_dim`**: Zobrazuje údaje o zamestnancoch (ID zamestnanca, meno, priezvisko, dátum narodenia, poznámky).
+- **`date_dim`**: Zahrňuje informácie o dátumoch objednávok (dátum, rok, mesiac, deň, týždeň, štvrťrok).
+- **`products_dim`**: Obsahuje detaily o produktoch (ID produktu, názov, kategória, jednotka, popis).
+- **`shippers_dim`**: Obsahuje údaje o dopravcoch (ID dopravcu, meno dopravcu, telefón).
+- **`suppliers_dim`**: Uvádza informácie o dodávateľoch (ID dodávateľa, názov, kontaktné údaje, krajina).
 
 Štruktúra hviezdicového modelu je znázornená na diagrame nižšie. Diagram ukazuje prepojenia medzi faktovou tabuľkou a dimenziami, čo zjednodušuje pochopenie a implementáciu modelu.
 
 <p align="center">
   <img src="https://github.com/Majloww/NorthWind-ETL/blob/main/Star_Schema Updated.png" alt="Star Schema">
   <br>
-  <em>Obrázok 2 Schéma hviezdy pre NorthWind</em>
+  <em>Obrázok 2 Hviezdicová schéma pre NorthWind</em>
 </p>
 
 ---
 ## **3. ETL proces v Snowflake**
-ETL proces pozostával z troch hlavných fáz: `extrahovanie` (Extract), `transformácia` (Transform) a `načítanie` (Load). Tento proces bol implementovaný v Snowflake s cieľom pripraviť zdrojové dáta zo staging vrstvy do viacdimenzionálneho modelu vhodného na analýzu a vizualizáciu.
+ETL proces pozostával z troch hlavných fáz: `extrahovanie` (Extract), `transformácia` (Transform) a `načítanie` (Load). Tento proces bol implementovaný v Snowflake s cieľom pripraviť zdrojové dáta zo staging vrstvy do viacdimenzionálneho modelu, ktorý je optimalizovaný na analýzu a vizualizáciu.
 
 ---
-### **3.1 Extract (Extrahovanie dát)**
-Dáta zo zdrojového datasetu (formát `.csv`) boli najprv nahraté do Snowflake prostredníctvom interného stage úložiska s názvom `my_stage`. Stage v Snowflake slúži ako dočasné úložisko na import alebo export dát. Vytvorenie stage bolo zabezpečené príkazom:
+### **3.1 Extrahovanie dát**
+V tomto kroku boli najprv dáta zo zdroja vo forme `.csv` nahraté do Snowflake do stage úložiska s názvom `GORILLA_Stage`. Stage slúži ako dočasné úložisko na import alebo export dát.
+
+Dáta zo zdrojového datasetu (formát `.csv`) boli najprv nahraté do Snowflake prostredníctvom interného stage úložiska s názvom `my_stage`. Stage v Snowflake slúži ako dočasné úložisko na import alebo export dát. Vytvorenie stage bolo zabezpečené príkazom: 
 
 #### Príklad kódu:
 ```sql
-CREATE OR REPLACE STAGE my_stage;
+CREATE OR REPLACE STAGE GORILLA_Stage;
 ```
-Do stage boli následne nahraté súbory obsahujúce údaje o knihách, používateľoch, hodnoteniach, zamestnaniach a úrovniach vzdelania. Dáta boli importované do staging tabuliek pomocou príkazu `COPY INTO`. Pre každú tabuľku sa použil podobný príkaz:
-
+Do stage boli následne nahraté súbory obsahujúce údaje o kategóriách, zákazníkoch, zamestnancoch, objednávkach, produktoch, dodávateľoch a dopravcoch. Dáta boli importované do staging tabuliek pomocou príkazu `COPY INTO`.
 ```sql
-COPY INTO occupations_staging
-FROM @my_stage/occupations.csv
-FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1);
+COPY INTO categories_staging
+FROM @GORILLA_Stage/categories.csv
+FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 ```
-
-V prípade nekonzistentných záznamov bol použitý parameter `ON_ERROR = 'CONTINUE'`, ktorý zabezpečil pokračovanie procesu bez prerušenia pri chybách.
+Tento proces bol zopakovaný pre všetky ďalšie tabuľky, čím sa zabezpečil import všetkých potrebných údajov.
 
 ---
-### **3.1 Transfor (Transformácia dát)**
+### **3.2 Transformácia dát**
 
 V tejto fáze boli dáta zo staging tabuliek vyčistené, transformované a obohatené. Hlavným cieľom bolo pripraviť dimenzie a faktovú tabuľku, ktoré umožnia jednoduchú a efektívnu analýzu.
 
@@ -138,7 +143,7 @@ JOIN dim_users u ON r.userId = u.dim_userId;
 ```
 
 ---
-### **3.3 Load (Načítanie dát)**
+### **3.3 Načítanie dát**
 
 Po úspešnom vytvorení dimenzií a faktovej tabuľky boli dáta nahraté do finálnej štruktúry. Na záver boli staging tabuľky odstránené, aby sa optimalizovalo využitie úložiska:
 ```sql
