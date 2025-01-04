@@ -44,7 +44,7 @@ Navrhnutý bol **hviezdicový model (star schema)**, ktorý umožňuje efektívn
 Štruktúra hviezdicového modelu je znázornená na diagrame nižšie. Diagram ukazuje prepojenia medzi faktovou tabuľkou a dimenziami, čo zjednodušuje pochopenie a implementáciu modelu.
 
 <p align="center">
-  <img src="https://github.com/Majloww/NorthWind-ETL/blob/main/Star_Schema Updated.png" alt="Star Schema">
+  <img src="https://github.com/Majloww/NorthWind-ETL/blob/main/Star_Schema Final.png" alt="Star Schema">
   <br>
   <em>Obrázok 2 Hviezdicová schéma pre NorthWind</em>
 </p>
@@ -73,42 +73,50 @@ Tento proces bol zopakovaný pre všetky ďalšie tabuľky, čím sa zabezpečil
 
 ---
 ### **3.2 Transformácia dát**
+Transformačná fáza ETL procesu v tomto prípade spočívala v spracovaní a úprave dát z dočasných staging tabuliek do dimenzií a faktovej tabuľky. Hlavným cieľom je pripraviť dimenzie a faktovú tabuľku, ktoré umožnia jednoduchú a efektívnu analýzu.
 
-V tejto fáze boli dáta zo staging tabuliek vyčistené, transformované a obohatené. Hlavným cieľom bolo pripraviť dimenzie a faktovú tabuľku, ktoré umožnia jednoduchú a efektívnu analýzu.
+Dimenzie boli navrhnuté na poskytovanie kontextu pre faktovú tabuľku. Každá z dimenzionálnych tabuliek obsahuje jedinečné hodnoty pre každý atribút a slúži ako referenčná tabuľka pre faktovú tabuľku. `customers_dim` obsahuje údaje ako meno zákazníka, kontaktné informácie, mesto a krajinu.
 
-Dimenzie boli navrhnuté na poskytovanie kontextu pre faktovú tabuľku. `Dim_users` obsahuje údaje o používateľoch vrátane vekových kategórií, pohlavia, zamestnania a vzdelania. Transformácia zahŕňala rozdelenie veku používateľov do kategórií (napr. „18-24“) a pridanie popisov zamestnaní a vzdelania. Táto dimenzia je typu SCD 2, čo umožňuje sledovať historické zmeny v zamestnaní a vzdelaní používateľov.
 ```sql
-CREATE TABLE dim_users AS
-SELECT DISTINCT
-    u.userId AS dim_userId,
-    CASE 
-        WHEN u.age < 18 THEN 'Under 18'
-        WHEN u.age BETWEEN 18 AND 24 THEN '18-24'
-        WHEN u.age BETWEEN 25 AND 34 THEN '25-34'
-        WHEN u.age BETWEEN 35 AND 44 THEN '35-44'
-        WHEN u.age BETWEEN 45 AND 54 THEN '45-54'
-        WHEN u.age >= 55 THEN '55+'
-        ELSE 'Unknown'
-    END AS age_group,
-    u.gender,
-    o.name AS occupation,
-    e.name AS education_level
-FROM users_staging u
-JOIN occupations_staging o ON u.occupationId = o.occupationId
-JOIN education_levels_staging e ON u.educationId = e.educationId;
+CREATE TABLE customers_dim
+AS SELECT DISTINCT
+    customerid as dim_customerID,
+    customername as Name,
+    contactname as Contact,
+    city as City,
+    country as Country
+FROM customers_staging;
 ```
-Dimenzia `dim_date` je navrhnutá tak, aby uchovávala informácie o dátumoch hodnotení kníh. Obsahuje odvodené údaje, ako sú deň, mesiac, rok, deň v týždni (v textovom aj číselnom formáte) a štvrťrok. Táto dimenzia je štruktúrovaná tak, aby umožňovala podrobné časové analýzy, ako sú trendy hodnotení podľa dní, mesiacov alebo rokov. Z hľadiska SCD je táto dimenzia klasifikovaná ako SCD Typ 0. To znamená, že existujúce záznamy v tejto dimenzii sú nemenné a uchovávajú statické informácie.
 
-V prípade, že by bolo potrebné sledovať zmeny súvisiace s odvodenými atribútmi (napr. pracovné dni vs. sviatky), bolo by možné prehodnotiť klasifikáciu na SCD Typ 1 (aktualizácia hodnôt) alebo SCD Typ 2 (uchovávanie histórie zmien). V aktuálnom modeli však táto potreba neexistuje, preto je `dim_date` navrhnutá ako SCD Typ 0 s rozširovaním o nové záznamy podľa potreby.
+Dimenzia `date_dim` je navrhnutá na uchovávanie informácií o dátumoch objednávok. Obsahuje odvodené údaje, ako sú rok, mesiac, deň, deň v týždni (v textovom aj číselnom formáte), a názov mesiaca. Táto dimenzia umožňuje podrobné časové analýzy, ako sú trendy objednávok podľa dní, mesiacov alebo rokov. Pre každý záznam sa vytvára jedinečný identifikátor `date_dimID`, ktorý je generovaný pomocou funkcie ROW_NUMBER(). Dimenzia date_dim obsahuje aj názvy mesiacov a dní v týždni v slovenčine, čo umožňuje lepšiu čitateľnosť a analýzu časových dát.
 
 ```sql
-CREATE TABLE dim_date AS
-SELECT
-    ROW_NUMBER() OVER (ORDER BY CAST(timestamp AS DATE)) AS dim_dateID,
-    CAST(timestamp AS DATE) AS date,
-    DATE_PART(day, timestamp) AS day,
-    DATE_PART(dow, timestamp) + 1 AS dayOfWeek,
-    CASE DATE_PART(dow, timestamp) + 1
+CREATE TABLE date_dim
+AS SELECT
+    ROW_NUMBER() OVER (ORDER BY CAST(OrderDate AS DATE)) AS dim_dateID,
+    OrderDate,
+    DATE_PART(year, OrderDate) AS year,
+    DATE_PART(month, OrderDate) AS month,
+    
+    CASE DATE_PART(month, OrderDate)
+        WHEN 1 THEN 'Január'
+        WHEN 2 THEN 'Február'
+        WHEN 3 THEN 'Marec'
+        WHEN 4 THEN 'Apríl'
+        WHEN 5 THEN 'Máj'
+        WHEN 6 THEN 'Jún'
+        WHEN 7 THEN 'Júl'
+        WHEN 8 THEN 'August'
+        WHEN 9 THEN 'September'
+        WHEN 10 THEN 'Október'
+        WHEN 11 THEN 'November'
+        WHEN 12 THEN 'December'
+    END AS Month_String,
+    
+    DATE_PART(day, OrderDate) AS day,
+    DATE_PART(dayofweek, OrderDate) + 1 AS Weekday,
+    
+    CASE DATE_PART(dayofweek, OrderDate) + 1
         WHEN 1 THEN 'Pondelok'
         WHEN 2 THEN 'Utorok'
         WHEN 3 THEN 'Streda'
@@ -116,44 +124,109 @@ SELECT
         WHEN 5 THEN 'Piatok'
         WHEN 6 THEN 'Sobota'
         WHEN 7 THEN 'Nedeľa'
-    END AS dayOfWeekAsString,
-    DATE_PART(month, timestamp) AS month,
-    DATE_PART(year, timestamp) AS year,
-    DATE_PART(quarter, timestamp) AS quarter
-FROM ratings_staging;
-```
-Podobne `dim_books` obsahuje údaje o knihách, ako sú názov, autor, rok vydania a vydavateľ. Táto dimenzia je typu SCD Typ 0, pretože údaje o knihách sú považované za nemenné, napríklad názov knihy alebo meno autora sa nemenia. 
+    END AS Weekday_String
 
-Faktová tabuľka `fact_ratings` obsahuje záznamy o hodnoteniach a prepojenia na všetky dimenzie. Obsahuje kľúčové metriky, ako je hodnota hodnotenia a časový údaj.
+FROM orders_staging
+GROUP BY OrderDate,
+        DATE_PART(year, OrderDate),
+        DATE_PART(month, OrderDate),
+        DATE_PART(day, OrderDate),
+        DATE_PART(dayofweek, OrderDate);
+
+select * from date_dim;
+```
+
+Dimenzia `products_dim` uchováva informácie o názve produktu, jeho kategórie, jednotkách (balenie napr.: 2 x 500g, 1 ks...) a popise.
+
 ```sql
-CREATE TABLE fact_ratings AS
-SELECT 
-    r.ratingId AS fact_ratingID,
-    r.timestamp AS timestamp,
-    r.rating,
-    d.dim_dateID AS dateID,
-    t.dim_timeID AS timeID,
-    b.dim_bookId AS bookID,
-    u.dim_userId AS userID
-FROM ratings_staging r
-JOIN dim_date d ON CAST(r.timestamp AS DATE) = d.date
-JOIN dim_time t ON r.timestamp = t.timestamp
-JOIN dim_books b ON r.ISBN = b.dim_bookId
-JOIN dim_users u ON r.userId = u.dim_userId;
+CREATE TABLE products_dim
+AS SELECT DISTINCT
+    productid as dim_productID,
+    productname as Product,
+    cs.categoryname as Category,
+    unit as Unit,
+    cs.description as Description
+FROM products_staging ps
+LEFT JOIN categories_staging cs ON ps.categoryid = cs.categoryid;
+```
+
+Dimenzia `suppliers_dim` uchováva informácie o názve dodávateľa, kontaktnú osobu a krajinu.
+
+```sql
+CREATE TABLE suppliers_dim
+AS SELECT DISTINCT
+    supplierid as dim_supplierID,
+    suppliername as Supplier_Name,
+    contactname as Contact,
+    country as Country
+FROM suppliers_staging;
+```
+
+Dimenzia `suppliers_dim` uchováva informácie o názve dopravcu a jeho telefónnom čísle.
+
+```sql
+CREATE TABLE shippers_dim
+AS SELECT DISTINCT
+    shipperid as dim_shipperID,
+    shippername as Shipper_Name,
+    phone as Phone
+FROM shippers_staging;
+```
+
+Dimenzia `employees_dim` uchováva informácie o mene a priezvisku zamestnanca, jeho dátume narodenia a poznámkach.
+
+```sql
+CREATE TABLE employees_dim
+AS SELECT DISTINCT
+    employeeid as dim_employeeID,
+    firstname as First_Name,
+    lastname as Last_Name,
+    birthdate as Birth_Date,
+    notes as Notes
+FROM employees_staging;
+```
+
+Faktová tabuľka `orders_facts` obsahuje záznamy o objednávkach a prepojenia na všetky dimenzie. Obsahuje kľúčové metriky, ako je množstvo, cena, dátum objednávky, identifikátory zákazníka, zamestnanca, dátumu, dopravcu, dodávateľa a produktu.
+
+```sql
+CREATE TABLE orders_facts
+AS SELECT
+    os.orderid as fact_orderID,
+    ds.quantity as Quantity,
+    ps.price as Price,
+    os.orderdate as Order_Date,
+    cd.dim_customerid as CustomerID,
+    ed.dim_employeeid as EmployeeID,
+    dd.dim_dateid as DateID,
+    sd.dim_shipperid as ShipperID,
+    ud.dim_supplierid as SupplierID,
+    pd.dim_productid as ProductID
+FROM orders_staging os
+LEFT JOIN orderdetails_staging ds ON os.orderid = ds.orderid
+JOIN products_staging ps ON ds.productid = ps.productid
+JOIN customers_dim cd ON os.customerid = cd.dim_customerid
+JOIN employees_dim ed ON os.employeeid = ed.dim_employeeid
+JOIN date_dim dd ON os.orderdate = dd.orderdate
+JOIN shippers_dim sd ON os.shipperid = sd.dim_shipperid
+JOIN suppliers_dim ud ON ps.supplierid = ud.dim_supplierid
+JOIN products_dim pd ON ps.productid = pd.dim_productid;
 ```
 
 ---
 ### **3.3 Načítanie dát**
 
 Po úspešnom vytvorení dimenzií a faktovej tabuľky boli dáta nahraté do finálnej štruktúry. Na záver boli staging tabuľky odstránené, aby sa optimalizovalo využitie úložiska:
+
 ```sql
-DROP TABLE IF EXISTS books_staging;
-DROP TABLE IF EXISTS education_levels_staging;
-DROP TABLE IF EXISTS occupations_staging;
-DROP TABLE IF EXISTS ratings_staging;
-DROP TABLE IF EXISTS users_staging;
+DROP TABLE IF EXISTS categories_staging;
+DROP TABLE IF EXISTS customers_staging;
+DROP TABLE IF EXISTS employees_staging;
+DROP TABLE IF EXISTS orderdetails_staging;
+DROP TABLE IF EXISTS orders_staging;
+DROP TABLE IF EXISTS products_staging;
+DROP TABLE IF EXISTS shippers_staging;
+DROP TABLE IF EXISTS suppliers_staging;
 ```
-ETL proces v Snowflake umožnil spracovanie pôvodných dát z `.csv` formátu do viacdimenzionálneho modelu typu hviezda. Tento proces zahŕňal čistenie, obohacovanie a reorganizáciu údajov. Výsledný model umožňuje analýzu čitateľských preferencií a správania používateľov, pričom poskytuje základ pre vizualizácie a reporty.
 
 ---
 ## **4 Vizualizácia dát**
@@ -215,7 +288,7 @@ SELECT
     d.dayOfWeekAsString AS day,
     COUNT(f.fact_ratingID) AS total_ratings
 FROM FACT_RATINGS f
-JOIN DIM_DATE d ON f.dateID = d.dim_dateID
+JOIN date_dim d ON f.dateID = d.date_dimID
 GROUP BY d.dayOfWeekAsString
 ORDER BY total_ratings DESC;
 ```
