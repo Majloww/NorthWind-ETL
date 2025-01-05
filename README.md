@@ -231,40 +231,42 @@ DROP TABLE IF EXISTS suppliers_staging;
 ---
 ## **4 Vizualizácia dát**
 
-Dashboard obsahuje `6 vizualizácií`, ktoré poskytujú základný prehľad o kľúčových metrikách a trendoch týkajúcich sa kníh, používateľov a hodnotení. Tieto vizualizácie odpovedajú na dôležité otázky a umožňujú lepšie pochopiť správanie používateľov a ich preferencie.
+Dashboard obsahuje 6 vizualizácií, ktoré poskytujú základný prehľad o kľúčových metrikách a trendoch týkajúcich sa kníh, používateľov a hodnotení. Tieto vizualizácie odpovedajú na dôležité otázky a umožňujú lepšie pochopiť správanie používateľov a ich preferencie.
 
 <p align="center">
-  <img src="https://github.com/JKabathova/NorthWind-ETL/blob/master/NorthWind_dashboard.png" alt="ERD Schema">
+  <img src="https://github.com/Majloww/NorthWind-ETL/blob/main/NorthWind%20Dashboard.png" alt="ERD Schema">
   <br>
-  <em>Obrázok 3 Dashboard NorthWind datasetu</em>
+  <em>Obrázok 3 Screenshot dashboardu NorthWind datasetu</em>
 </p>
 
 ---
-### **Graf 1: Najviac hodnotené knihy (Top 10 kníh)**
-Táto vizualizácia zobrazuje 10 kníh s najväčším počtom hodnotení. Umožňuje identifikovať najpopulárnejšie tituly medzi používateľmi. Zistíme napríklad, že kniha `Wild Animus` má výrazne viac hodnotení v porovnaní s ostatnými knihami. Tieto informácie môžu byť užitočné na odporúčanie kníh alebo marketingové kampane.
+### **Graf 1: Zisk za každý deň**
+Táto vizualizácia zobrazuje zisk za určité dni. Z nej sa dajú získať informácie o najziskovejších dňoch
 
 ```sql
 SELECT 
-    b.title AS book_title,
-    COUNT(f.fact_ratingID) AS total_ratings
-FROM FACT_RATINGS f
-JOIN DIM_BOOKS b ON f.bookID = b.dim_bookId
-GROUP BY b.title
-ORDER BY total_ratings DESC
-LIMIT 10;
+    dd.OrderDate AS Day,
+    SUM(ofacts.Quantity * ofacts.Price) AS Total_Revenue
+FROM orders_facts ofacts
+JOIN date_dim dd ON ofacts.DateID = dd.dim_dateID
+GROUP BY dd.OrderDate
+ORDER BY Day;
 ```
+
 ---
-### **Graf 2: Rozdelenie hodnotení podľa pohlavia používateľov**
-Graf znázorňuje rozdiely v počte hodnotení medzi mužmi a ženami. Z údajov je zrejmé, že ženy hodnotili knihy o niečo častejšie ako muži, no rozdiely sú minimálne a aktivita medzi pohlaviami je viac-menej vyrovnaná. Táto vizualizácia ukazuje, že obsah alebo kampane môžu byť efektívne zamerané na obe pohlavia bez potreby výrazného rozlišovania.
+### **Graf 2: Zisk podľa kategórie**
+Graf znázorňuje zisk pre každú kategóriu. Z neho sa dá vyčítať, že nápoje majú najväčší zisk spomedzi všetkých kategórií.
 
 ```sql
 SELECT 
-    u.gender,
-    COUNT(f.fact_ratingID) AS total_ratings
-FROM FACT_RATINGS f
-JOIN DIM_USERS u ON f.userID = u.dim_userId
-GROUP BY u.gender;
+    pd.Category AS Category_Name,
+    SUM(ofacts.Quantity * ofacts.Price) AS Total_Revenue
+FROM orders_facts ofacts
+JOIN products_dim pd ON ofacts.ProductID = pd.dim_productID
+GROUP BY pd.Category
+ORDER BY Total_Revenue DESC;
 ```
+
 ---
 ### **Graf 3: Trendy hodnotení kníh podľa rokov vydania (2000–2024)**
 Graf ukazuje, ako sa priemerné hodnotenie kníh mení podľa roku ich vydania v období 2000–2024. Z vizualizácie je vidieť, že medzi rokmi 2000 a 2005 si knihy udržiavali stabilné priemerné hodnotenie. Po tomto období však nastal výrazný pokles priemerného hodnotenia. Od tohto bodu opäť postupne stúpajú a  po roku 2020, je tendencia, že knihy získavajú vyššie priemerné hodnotenia. Tento trend môže naznačovať zmenu kvality kníh, vývoj čitateľských preferencií alebo rozdiely v hodnotiacich kritériách používateľov.
