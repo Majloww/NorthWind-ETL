@@ -296,36 +296,33 @@ ORDER BY Total_Quantity_Shipped DESC;
 ```
 
 ---
-### **Graf 5: Počet hodnotení podľa povolaní**
-Tento graf  poskytuje informácie o počte hodnotení podľa povolaní používateľov. Umožňuje analyzovať, ktoré profesijné skupiny sú najviac aktívne pri hodnotení kníh a ako môžu byť tieto skupiny zacielené pri vytváraní personalizovaných odporúčaní. Z údajov je zrejmé, že najaktívnejšími profesijnými skupinami sú `Marketing Specialists` a `Librarians`, s viac ako 1 miliónom hodnotení. 
+### **Graf 5: Splnené objednávky zamestnancami**
+Vizualizácia sa zameriava na počet objednávok, ktoré zamestnanci splnili.
 
 ```sql
 SELECT 
-    u.occupation AS occupation,
-    COUNT(f.fact_ratingID) AS total_ratings
-FROM FACT_RATINGS f
-JOIN DIM_USERS u ON f.userID = u.dim_userId
-GROUP BY u.occupation
-ORDER BY total_ratings DESC
-LIMIT 10;
+    ed.First_Name || ' ' || ed.Last_Name AS EmployeeName,
+    COUNT(DISTINCT ofacts.fact_orderID) AS Total_Orders,
+FROM orders_facts ofacts
+JOIN employees_dim ed ON ofacts.EmployeeID = ed.dim_employeeID
+GROUP BY ed.dim_employeeID, ed.First_Name, ed.Last_Name
+ORDER BY COUNT(ofacts.fact_orderid);
 ```
+
 ---
-### **Graf 6: Aktivita používateľov počas dňa podľa vekových kategórií**
+### **Graf 6: Zisk zamestnancov za objednávky**
 Tento stĺpcový graf ukazuje, ako sa aktivita používateľov mení počas dňa (dopoludnia vs. popoludnia) a ako sa líši medzi rôznymi vekovými skupinami. Z grafu vyplýva, že používatelia vo vekovej kategórii `55+` sú aktívni rovnomerne počas celého dňa, zatiaľ čo ostatné vekové skupiny vykazujú výrazne nižšiu aktivitu a majú obmedzený čas na hodnotenie, čo môže súvisieť s pracovnými povinnosťami. Tieto informácie môžu pomôcť lepšie zacieliť obsah a plánovať aktivity pre rôzne vekové kategórie.
+
 ```sql
 SELECT 
-    t.ampm AS time_period,
-    u.age_group AS age_group,
-    COUNT(f.fact_ratingID) AS total_ratings
-FROM FACT_RATINGS f
-JOIN DIM_TIME t ON f.timeID = t.dim_timeID
-JOIN DIM_USERS u ON f.userID = u.dim_userId
-GROUP BY t.ampm, u.age_group
-ORDER BY time_period, total_ratings DESC;
+    ed.First_Name || ' ' || ed.Last_Name AS Employee_Name,
+    SUM(ofacts.Quantity * ofacts.Price) AS Total_Revenue
+FROM orders_facts ofacts
+JOIN employees_dim ed ON ofacts.EmployeeID = ed.dim_employeeID
+GROUP BY ed.First_Name, ed.Last_Name
+ORDER BY Total_Revenue DESC;
 
 ```
-
-Dashboard poskytuje komplexný pohľad na dáta, pričom zodpovedá dôležité otázky týkajúce sa čitateľských preferencií a správania používateľov. Vizualizácie umožňujú jednoduchú interpretáciu dát a môžu byť využité na optimalizáciu odporúčacích systémov, marketingových stratégií a knižničných služieb.
 
 ---
 
