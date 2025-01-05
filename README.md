@@ -6,7 +6,7 @@ Tento projekt predstavuje implementáciu ETL procesu v Snowflake na analýzu dá
 ## **1. Úvod a popis zdrojových dát**
 Cieľom semestrálneho projektu je analyzovať dáta týkajúce sa produktov, zákazníkov a objednávok. Táto analýza umožňuje identifikovať trendy v predajoch, výkonnosť zamestnancov a preferencie zákazníkov.
 
-Zdrojové dáta pochádzajú z Northwind databázy dostupnej [tu](https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs). Dataset obsahuje sedem hlavných tabuliek:
+Zdrojové dáta pochádzajú z Northwind databázy dostupnej [na githube](https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs). Dataset obsahuje sedem hlavných tabuliek:
 - `categories`
 - `products`
 - `suppliers`
@@ -268,32 +268,33 @@ ORDER BY Total_Revenue DESC;
 ```
 
 ---
-### **Graf 3: Trendy hodnotení kníh podľa rokov vydania (2000–2024)**
-Graf ukazuje, ako sa priemerné hodnotenie kníh mení podľa roku ich vydania v období 2000–2024. Z vizualizácie je vidieť, že medzi rokmi 2000 a 2005 si knihy udržiavali stabilné priemerné hodnotenie. Po tomto období však nastal výrazný pokles priemerného hodnotenia. Od tohto bodu opäť postupne stúpajú a  po roku 2020, je tendencia, že knihy získavajú vyššie priemerné hodnotenia. Tento trend môže naznačovať zmenu kvality kníh, vývoj čitateľských preferencií alebo rozdiely v hodnotiacich kritériách používateľov.
+### **Graf 3: Objednávky podľa krajín**
+Stĺpec má informácie o krajinách, v riadkoch je počet objednávok. Z grafu sa dá vyčítať, že pomedzi krajiny s najviac objednávkami patrí USA a Nemecko.
 
 ```sql
 SELECT 
-    b.release_year AS year,
-    AVG(f.rating) AS avg_rating
-FROM FACT_RATINGS f
-JOIN DIM_BOOKS b ON f.bookID = b.dim_bookId
-WHERE b.release_year BETWEEN 2000 AND 2024
-GROUP BY b.release_year
-ORDER BY b.release_year;
+    cd.Country,
+    COUNT(orders_facts.fact_orderID) AS Order_Count
+FROM orders_facts orders_facts
+JOIN customers_dim cd ON orders_facts.CustomerID = cd.dim_customerID
+GROUP BY cd.Country
+ORDER BY Order_Count DESC;
 ```
+
 ---
-### **Graf 4: Celková aktivita počas dní v týždni**
-Tabuľka znázorňuje, ako sú hodnotenia rozdelené podľa jednotlivých dní v týždni. Z údajov vyplýva, že najväčšia aktivita je zaznamenaná cez víkendy (sobota a nedeľa) a počas dní na prelome pracovného týždňa a víkendu (piatok a pondelok). Tento trend naznačuje, že používatelia majú viac času na čítanie a hodnotenie kníh počas voľných dní.
+### **Graf 4: Počet objednávok dodaných dodávateľmi**
+Vo vizualizácií sú tri stĺpce, každý pre jedného dodávateľa. Zobrazuje počet dodaných objednávok.
 
 ```sql
 SELECT 
-    d.dayOfWeekAsString AS day,
-    COUNT(f.fact_ratingID) AS total_ratings
-FROM FACT_RATINGS f
-JOIN date_dim d ON f.dateID = d.date_dimID
-GROUP BY d.dayOfWeekAsString
-ORDER BY total_ratings DESC;
+    sd.Shipper_Name AS Shipper,
+    SUM(ofacts.Quantity) AS Total_Quantity_Shipped
+FROM orders_facts ofacts
+JOIN shippers_dim sd ON ofacts.ShipperID = sd.dim_shipperID
+GROUP BY sd.Shipper_Name
+ORDER BY Total_Quantity_Shipped DESC;
 ```
+
 ---
 ### **Graf 5: Počet hodnotení podľa povolaní**
 Tento graf  poskytuje informácie o počte hodnotení podľa povolaní používateľov. Umožňuje analyzovať, ktoré profesijné skupiny sú najviac aktívne pri hodnotení kníh a ako môžu byť tieto skupiny zacielené pri vytváraní personalizovaných odporúčaní. Z údajov je zrejmé, že najaktívnejšími profesijnými skupinami sú `Marketing Specialists` a `Librarians`, s viac ako 1 miliónom hodnotení. 
