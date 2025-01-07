@@ -34,12 +34,12 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na **e
 
 Navrhnutý bol **hviezdicový model (star schema)**, ktorý umožňuje efektívnu analýzu. Centrálny bod tohto modelu tvorí faktová tabuľka **`orders_facts`**, ktorá je prepojená s nasledujúcimi dimenziami:
 
-- **`customers_dim`**: Obsahuje informácie o zákazníkoch (ID zákazníka, meno, kontaktné údaje, mesto, krajina).
-- **`employees_dim`**: Zobrazuje údaje o zamestnancoch (ID zamestnanca, meno, priezvisko, dátum narodenia, poznámky).
-- **`date_dim`**: Zahrňuje informácie o dátumoch objednávok (dátum, rok, mesiac, deň, týždeň, štvrťrok).
-- **`products_dim`**: Obsahuje detaily o produktoch (ID produktu, názov, kategória, jednotka, popis).
-- **`shippers_dim`**: Obsahuje údaje o dopravcoch (ID dopravcu, meno dopravcu, telefón).
-- **`suppliers_dim`**: Uvádza informácie o dodávateľoch (ID dodávateľa, názov, kontaktné údaje, krajina).
+- `customers_dim`: Obsahuje informácie o zákazníkoch (ID zákazníka, meno, kontaktné údaje, mesto, krajina).
+- `employees_dim`: Zobrazuje údaje o zamestnancoch (ID zamestnanca, meno, priezvisko, dátum narodenia, poznámky).
+- `date_dim`: Zahrňuje informácie o dátumoch objednávok (dátum, rok, mesiac, deň, týždeň, štvrťrok).
+- `products_dim`: Obsahuje detaily o produktoch (ID produktu, názov, kategória, jednotka, popis).
+- `shippers_dim`: Obsahuje údaje o dopravcoch (ID dopravcu, meno dopravcu, telefón).
+- `suppliers_dim`: Uvádza informácie o dodávateľoch (ID dodávateľa, názov, kontaktné údaje, krajina).
 
 Štruktúra hviezdicového modelu je znázornená na diagrame nižšie. Diagram ukazuje prepojenia medzi faktovou tabuľkou a dimenziami, čo zjednodušuje pochopenie a implementáciu modelu.
 
@@ -48,6 +48,22 @@ Navrhnutý bol **hviezdicový model (star schema)**, ktorý umožňuje efektívn
   <br>
   <em>Obrázok 2 Hviezdicová schéma pre NorthWind</em>
 </p>
+
+---
+### **2.1 Typy SCD dimenzií**
+
+- `customers_dim`: Typ 1
+Zmeny v údajoch zákazníkov (napr. kontaktné údaje) prepisujú existujúce záznamy, čím sa neuchováva história zmien.
+- `employees_dim`: Typ 2
+Uchovávanie historických záznamov o zamestnancoch (napr. zmena mena) vytvára nové riadky s rôznymi hodnotami a prideleným časovým rozsahom platnosti (valid_from, valid_to).
+- `date_dim`: Statická dimenzia
+Dátumová dimenzia sa nemení a nezahŕňa SCD, keďže obsahuje iba odvodené hodnoty bez historických zmien.
+- `products_dim`: Typ 2
+Zmeny v kategórii alebo popise produktu sa ukladajú ako nové riadky, čím sa zabezpečuje historická analýza.
+- `shippers_dim`: Typ 1
+Údaje o dopravcoch sú aktualizované prepisovaním starých hodnôt, bez ukladania histórie.
+- `suppliers_dim`: Typ 1
+Informácie o dodávateľoch sú aktualizované priamym prepísaním existujúcich hodnôt, bez uchovávania histórie.
 
 ---
 ## **3. ETL proces v Snowflake**
